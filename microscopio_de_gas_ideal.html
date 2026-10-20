@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microscopio de Gas Ideal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for sliders to make them look modern */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        
+        /* Canvas container styles */
+        #canvas-container {
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans h-screen w-screen overflow-hidden flex flex-col p-2 md:p-4 gap-4">
+
+    <!-- Header -->
+    <header class="text-center shrink-0">
+        <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-400">
+            Microscopio de Gas Ideal
+        </h1>
+        <p class="text-slate-400 text-sm mt-1">Explora las leyes de Boyle, Charles y Gay-Lussac (PV = nRT)</p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+        
+        <!-- Canvas Area -->
+        <div id="canvas-container" class="flex-1 rounded-2xl border border-slate-800 overflow-hidden relative shadow-2xl">
+            <canvas id="simCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Piston Visual Overlay (Right Wall) -->
+            <div id="piston" class="absolute top-0 bottom-0 right-0 bg-slate-700/80 border-l-4 border-slate-400 backdrop-blur-sm transition-all duration-100 flex items-center justify-center shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
+                <div class="flex flex-col gap-2 opacity-50">
+                    <div class="w-2 h-16 bg-slate-400 rounded-full"></div>
+                    <div class="w-2 h-16 bg-slate-400 rounded-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Area -->
+        <aside class="w-full lg:w-96 shrink-0 flex flex-col gap-4 overflow-y-auto pr-2">
+            
+            <!-- Real-time Metrics Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+                <h2 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Medidores en Tiempo Real
+                </h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Presión (P)</div>
+                        <div class="text-2xl font-mono font-bold text-emerald-400"><span id="lbl-pressure">1.00</span> <span class="text-sm font-sans text-slate-500">atm</span></div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Temperatura (T)</div>
+                        <div class="text-2xl font-mono font-bold text-orange-400"><span id="lbl-temp-disp">300</span> <span class="text-sm font-sans text-slate-500">K</span></div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Volumen (V)</div>
+                        <div class="text-2xl font-mono font-bold text-blue-400"><span id="lbl-vol-disp">60</span> <span class="text-sm font-sans text-slate-500">L</span></div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                        <div class="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Partículas (n)</div>
+                        <div class="text-2xl font-mono font-bold text-purple-400"><span id="lbl-n-disp">100</span> <span class="text-sm font-sans text-slate-500">mol</span></div>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-slate-950/50 rounded-lg border border-slate-800 text-xs text-slate-400 text-center italic">
+                    P ∝ (n × T) / V
+                </div>
+            </div>
+
+            <!-- Interactive Controls -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex-1">
+                <h2 class="text-lg font-semibold mb-6 text-slate-300 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Controles de Variables
+                </h2>
+                
+                <div class="flex flex-col gap-6">
+                    <!-- Temperature Slider -->
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="text-sm font-medium text-slate-400">Temperatura (T)</label>
+                            <span class="text-sm font-mono text-orange-400" id="val-temp">300 K</span>
+                        </div>
+                        <input type="range" id="slider-temp" min="50" max="3000" value="300" class="w-full">
+                        <div class="flex justify-between text-xs text-slate-600 mt-1">
+                            <span>Frío</span>
+                            <span>Caliente</span>
+                        </div>
+                    </div>
+
+                    <!-- Volume Slider -->
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="text-sm font-medium text-slate-400">Volumen (V)</label>
+                            <span class="text-sm font-mono text-blue-400" id="val-vol">60 L</span>
+                        </div>
+                        <input type="range" id="slider-vol" min="20" max="100" value="60" class="w-full">
+                        <div class="flex justify-between text-xs text-slate-600 mt-1">
+                            <span>Comprimido</span>
+                            <span>Expandido</span>
+                        </div>
+                    </div>
+
+                    <!-- Particles Slider -->
+                    <div>
+                        <div class="flex justify-between items-end mb-2">
+                            <label class="text-sm font-medium text-slate-400">Cantidad de Gas (n)</label>
+                            <span class="text-sm font-mono text-purple-400" id="val-n">100</span>
+                        </div>
+                        <input type="range" id="slider-n" min="10" max="500" value="100" class="w-full">
+                        <div class="flex justify-between text-xs text-slate-600 mt-1">
+                            <span>Vacío</span>
+                            <span>Denso</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón de Fórmulas -->
+            <button id="btn-formulas" class="w-full mt-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold shadow-lg shadow-blue-900/50 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Ver Fórmulas
+            </button>
+            
+        </aside>
+    </main>
+
+    <!-- Modal de Fórmulas -->
+    <div id="formulas-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden transform scale-95 transition-transform duration-300" id="formulas-content">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                <h3 class="text-xl font-bold text-slate-200 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    Fórmulas del Simulador
+                </h3>
+                <button id="btn-close-modal" class="text-slate-400 hover:text-white transition-colors bg-slate-800 hover:bg-slate-700 p-2 rounded-full">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto max-h-[70vh] space-y-6 text-slate-300 text-sm">
+                
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <h4 class="text-lg font-semibold text-blue-400 mb-2 font-mono">1. Ley de los Gases Ideales</h4>
+                    <p class="mb-2">La ecuación de estado que relaciona las variables fundamentales del gas:</p>
+                    <div class="text-center text-2xl font-mono text-white my-3 bg-slate-900 py-2 rounded-lg border border-slate-700">PV = nRT</div>
+                    <ul class="list-disc list-inside space-y-1 text-slate-400 ml-2">
+                        <li><strong class="text-slate-300">P (Presión):</strong> Fuerza ejercida por las colisiones contra las paredes.</li>
+                        <li><strong class="text-slate-300">V (Volumen):</strong> El espacio disponible en el contenedor.</li>
+                        <li><strong class="text-slate-300">n (Cantidad):</strong> Número de partículas en el sistema.</li>
+                        <li><strong class="text-slate-300">T (Temperatura):</strong> Relacionada con la energía térmica.</li>
+                        <li><strong class="text-slate-300">R:</strong> Constante universal de los gases ideales.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <h4 class="text-lg font-semibold text-orange-400 mb-2 font-mono">2. Proceso Adiabático</h4>
+                    <p class="mb-2">Al cambiar el volumen rápidamente, simulamos un proceso adiabático donde no hay transferencia de calor con el exterior. Para un gas monoatómico:</p>
+                    <div class="text-center text-xl font-mono text-white my-3 bg-slate-900 py-2 rounded-lg border border-slate-700">T₂ = T₁ · (V₁ / V₂)<sup>2/3</sup></div>
+                    <p class="text-slate-400">Es por esto que al <strong class="text-orange-400">comprimir</strong> el gas, la temperatura <strong class="text-orange-400">aumenta (T₂ > T₁)</strong>, y al expandirlo, se enfría.</p>
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <h4 class="text-lg font-semibold text-emerald-400 mb-2 font-mono">3. Teoría Cinética de Gases</h4>
+                    <p class="mb-2">La velocidad de las partículas individuales depende de la temperatura absoluta del sistema. A mayor temperatura, mayor agitación térmica:</p>
+                    <div class="text-center text-xl font-mono text-white my-3 bg-slate-900 py-2 rounded-lg border border-slate-700">v ∝ √T</div>
+                    <p class="text-slate-400">En el simulador, tanto la velocidad real de las esferas como su color (de azul frío a rojo caliente) se actualizan dinámicamente según esta relación de raíz cuadrada.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Ideal Gas Simulator Logic
+         */
+        
+        // --- DOM Elements ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        const piston = document.getElementById('piston');
+
+        // Sliders
+        const sliderTemp = document.getElementById('slider-temp');
+        const sliderVol = document.getElementById('slider-vol');
+        const sliderN = document.getElementById('slider-n');
+
+        // Labels
+        const valTemp = document.getElementById('val-temp');
+        const valVol = document.getElementById('val-vol');
+        const valN = document.getElementById('val-n');
+        
+        const lblPressure = document.getElementById('lbl-pressure');
+        const lblTempDisp = document.getElementById('lbl-temp-disp');
+        const lblVolDisp = document.getElementById('lbl-vol-disp');
+        const lblNDisp = document.getElementById('lbl-n-disp');
+
+        // Modal Elements
+        const btnFormulas = document.getElementById('btn-formulas');
+        const modalFormulas = document.getElementById('formulas-modal');
+        const btnCloseModal = document.getElementById('btn-close-modal');
+        const modalContent = document.getElementById('formulas-content');
+
+        // --- State Variables ---
+        let params = {
+            temperature: parseInt(sliderTemp.value), // K
+            volumePercent: parseInt(sliderVol.value), // %
+            particleCount: parseInt(sliderN.value)
+        };
+
+        // Base constant to calculate pressure so that at (300K, 60%, 100n) P ≈ 1.0 atm
+        // P = (n * T / V) * k
+        // 1 = (100 * 300 / 60) * k  => 1 = 500 * k => k = 1/500
+        const PRESSURE_CONSTANT = 1 / 500;
+        
+        let canvasWidth = 0;
+        let canvasHeight = 0;
+        let activeWidth = 0; // Width available for particles (Volume)
+        
+        // Physics constants
+        const BASE_VELOCITY_SCALAR = 0.15; 
+        const PARTICLE_RADIUS = 4;
+
+        // --- Particle Class ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = PARTICLE_RADIUS;
+                
+                // Random normalized direction
+                const angle = Math.random() * Math.PI * 2;
+                this.dx = Math.cos(angle);
+                this.dy = Math.sin(angle);
+                
+                // Set initial velocity based on temperature
+                this.updateSpeed();
+            }
+
+            updateSpeed() {
+                // v ∝ sqrt(T)
+                const speed = Math.sqrt(params.temperature) * BASE_VELOCITY_SCALAR;
+                this.vx = this.dx * speed;
+                this.vy = this.dy * speed;
+            }
+
+            update(dt) {
+                // Move
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                // Bounce off walls
+                // Left
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -1;
+                    this.dx *= -1;
+                }
+                // Right (Piston)
+                if (this.x + this.radius > activeWidth) {
+                    this.x = activeWidth - this.radius;
+                    this.vx *= -1;
+                    this.dx *= -1;
+                }
+                // Top
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -1;
+                    this.dy *= -1;
+                }
+                // Bottom
+                if (this.y + this.radius > canvasHeight) {
+                    this.y = canvasHeight - this.radius;
+                    this.vy *= -1;
+                    this.dy *= -1;
+                }
+            }
+
+            draw(ctx, particleColor) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = particleColor;
+                
+                // Glowing effect
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = particleColor;
+                
+                ctx.fill();
+                ctx.shadowBlur = 0; // reset
+            }
+        }
+
+        let particles = [];
+
+        // --- Core Functions ---
+
+        function resize() {
+            const rect = container.getBoundingClientRect();
+            // Handle high DPI displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            canvasWidth = rect.width;
+            canvasHeight = rect.height;
+            
+            updateVolumeConstraint();
+        }
+
+        function updateVolumeConstraint() {
+            activeWidth = canvasWidth * (params.volumePercent / 100);
+            piston.style.width = `${100 - params.volumePercent}%`;
+            
+            // Push particles in if volume decreases
+            particles.forEach(p => {
+                if (p.x + p.radius > activeWidth) {
+                    p.x = activeWidth - p.radius - 1;
+                }
+            });
+        }
+
+        // Color maps Temperature (50 -> 3000) to Hue (240 Blue -> 0 Red)
+        function getTemperatureColor(temp) {
+            // clamp
+            const t = Math.max(50, Math.min(3000, temp));
+            // normalize 0 to 1
+            const normalized = (t - 50) / (3000 - 50);
+            // Hue: 240 (blue) to 0 (red)
+            const hue = 240 * (1 - normalized);
+            return `hsl(${hue}, 100%, 60%)`;
+        }
+
+        function syncParticlesCount() {
+            const currentCount = particles.length;
+            const targetCount = params.particleCount;
+
+            if (currentCount < targetCount) {
+                // Add particles
+                for (let i = 0; i < targetCount - currentCount; i++) {
+                    const x = Math.random() * (activeWidth - PARTICLE_RADIUS * 2) + PARTICLE_RADIUS;
+                    const y = Math.random() * (canvasHeight - PARTICLE_RADIUS * 2) + PARTICLE_RADIUS;
+                    particles.push(new Particle(x, y));
+                }
+            } else if (currentCount > targetCount) {
+                // Remove particles
+                particles.splice(targetCount);
+            }
+        }
+
+        function updateSpeeds() {
+            particles.forEach(p => p.updateSpeed());
+        }
+
+        function updateMetrics() {
+            // Calculate theoretical pressure: P = (n * T / V) * const
+            const pressure = (params.particleCount * params.temperature / params.volumePercent) * PRESSURE_CONSTANT;
+            
+            lblPressure.textContent = pressure.toFixed(2);
+            lblTempDisp.textContent = params.temperature;
+            lblVolDisp.textContent = params.volumePercent;
+            lblNDisp.textContent = params.particleCount;
+        }
+
+        // --- Event Listeners ---
+        
+        window.addEventListener('resize', resize);
+
+        sliderTemp.addEventListener('input', (e) => {
+            params.temperature = parseInt(e.target.value);
+            valTemp.textContent = `${params.temperature} K`;
+            updateSpeeds();
+            updateMetrics();
+        });
+
+        sliderVol.addEventListener('input', (e) => {
+            const newVolumePercent = parseInt(e.target.value);
+            const oldVolumePercent = params.volumePercent;
+
+            if (oldVolumePercent !== newVolumePercent) {
+                // Compresión/Expansión Adiabática: T2 = T1 * (V1/V2)^(2/3) (gas ideal monoatómico)
+                const volumeRatio = oldVolumePercent / newVolumePercent;
+                let newTemp = params.temperature * Math.pow(volumeRatio, 2 / 3);
+                
+                // Limitar la temperatura al rango del slider (50 a 3000)
+                newTemp = Math.max(50, Math.min(3000, Math.round(newTemp)));
+                
+                params.volumePercent = newVolumePercent;
+                params.temperature = newTemp;
+
+                // Actualizar UI de Volumen
+                valVol.textContent = `${params.volumePercent} L`;
+                
+                // Actualizar UI de Temperatura automáticamente
+                sliderTemp.value = params.temperature;
+                valTemp.textContent = `${params.temperature} K`;
+
+                updateSpeeds();
+                updateVolumeConstraint();
+                updateMetrics();
+            }
+        });
+
+        sliderN.addEventListener('input', (e) => {
+            params.particleCount = parseInt(e.target.value);
+            valN.textContent = `${params.particleCount}`;
+            syncParticlesCount();
+            updateMetrics();
+        });
+
+        // --- Modal Logic ---
+        function openModal() {
+            modalFormulas.classList.remove('hidden');
+            // Trigger reflow to apply transitions
+            void modalFormulas.offsetWidth;
+            modalFormulas.classList.remove('opacity-0');
+            modalContent.classList.remove('scale-95');
+        }
+
+        function closeModal() {
+            modalFormulas.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modalFormulas.classList.add('hidden');
+            }, 300);
+        }
+
+        btnFormulas.addEventListener('click', openModal);
+        btnCloseModal.addEventListener('click', closeModal);
+        modalFormulas.addEventListener('click', (e) => {
+            // Close modal if clicking on the background overlay
+            if (e.target === modalFormulas) closeModal();
+        });
+
+        // --- Main Loop ---
+        let lastTime = 0;
+        
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Target roughly 60fps movement scale.
+            // Using a fixed time step logic helps prevent huge jumps if tab is inactive
+            const timeStep = Math.min(dt, 32); 
+
+            // Clear canvas completely
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Draw background for active area to differentiate from piston
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+            ctx.fillRect(0, 0, activeWidth, canvasHeight);
+
+            // Get global color based on temperature
+            const particleColor = getTemperatureColor(params.temperature);
+
+            // Update and draw particles
+            particles.forEach(p => {
+                p.update(timeStep);
+                p.draw(ctx, particleColor);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            resize();
+            syncParticlesCount();
+            updateMetrics();
+            requestAnimationFrame(animate);
+        };
+
+    </script>
+</body>
+</html>
